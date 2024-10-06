@@ -13,8 +13,8 @@ const app = (0, express_1.default)();
 const proxy = http_proxy_1.default.createProxyServer({});
 app.set("trust proxy", true);
 // Path to the authorized users file and log file
-const apiKeysFilePath = path_1.default.join(__dirname, "api_keys.json");
-const logFilePath = path_1.default.join(__dirname, "access_log.csv");
+const apiKeysFilePath = path_1.default.join(process.cwd(), "api_keys.json");
+const logFilePath = path_1.default.join(process.cwd(), "access_log.csv");
 let apiKeys = {};
 if (fs_1.default.existsSync(apiKeysFilePath)) {
     apiKeys = JSON.parse(fs_1.default.readFileSync(apiKeysFilePath, "utf8"));

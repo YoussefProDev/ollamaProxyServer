@@ -10,8 +10,8 @@ const app = express();
 const proxy = httpProxy.createProxyServer({});
 app.set("trust proxy", true);
 // Path to the authorized users file and log file
-const apiKeysFilePath = path.join(__dirname, "api_keys.json");
-const logFilePath = path.join(__dirname, "access_log.csv");
+const apiKeysFilePath = path.join(process.cwd(), "api_keys.json");
+const logFilePath = path.join(process.cwd(), "access_log.csv");
 
 // Load API keys from JSON file
 interface ApiKey {
