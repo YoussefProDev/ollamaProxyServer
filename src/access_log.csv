@@ -3,3 +3,6 @@
 2024-10-05T14:52:08.040Z,gen_request,youssef,::1,http://ollama-server2.com/api,0,
 2024-10-05T14:52:08.101Z,gen_error,youssef,::1,http://ollama-server2.com/api,0,getaddrinfo ENOTFOUND ollama-server2.com
 2024-10-05T14:52:14.809Z,gen_request,youssef,::1,http://ollama-server2.com/api,0,
+2024-10-06T09:48:35.150Z,gen_request,youssef,::1,http://localhost:11434,0,
+2024-10-06T09:48:35.175Z,gen_error,youssef,::1,http://localhost:11434,0,
+2024-10-06T09:48:44.138Z,gen_request,youssef,::1,http://localhost:11434,0,
