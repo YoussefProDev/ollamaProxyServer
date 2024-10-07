@@ -4,16 +4,18 @@ import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { createObjectCsvWriter } from "csv-writer";
+import axios from "axios"; // Usato per fare la richiesta verso Ollama o altro server
 
-// Create an express app
+// Crea un'istanza di Express
 const app = express();
 const proxy = httpProxy.createProxyServer({});
 app.set("trust proxy", true);
-// Path to the authorized users file and log file
+
+// Percorsi per il file delle API key e il log
 const apiKeysFilePath = path.join(process.cwd(), "api_keys.json");
 const logFilePath = path.join(process.cwd(), "access_log.csv");
 
-// Load API keys from JSON file
+// Carica le API key dal file JSON
 interface ApiKey {
   name: string;
   description: string;
@@ -24,7 +26,7 @@ if (fs.existsSync(apiKeysFilePath)) {
   apiKeys = JSON.parse(fs.readFileSync(apiKeysFilePath, "utf8"));
 }
 
-// CSV Writer for logging
+// CSV Writer per il log degli accessi
 const csvWriter = createObjectCsvWriter({
   path: logFilePath,
   header: [
@@ -39,17 +41,17 @@ const csvWriter = createObjectCsvWriter({
   append: true,
 });
 
-// Function to retrieve the client IP address, considering X-Forwarded-For
+// Funzione per recuperare l'indirizzo IP del client
 function getClientIp(req: Request): string {
   const xForwardedFor = req.headers["x-forwarded-for"];
   if (xForwardedFor) {
     const ipArray = (xForwardedFor as string).split(",");
-    return ipArray[0].trim(); // The first IP is the original client IP
+    return ipArray[0].trim(); // Il primo IP è quello del client originale
   }
-  return req.ip ?? "IP Not Found"; // Default to the request IP if no X-Forwarded-For header is present
+  return req.ip ?? "IP Not Found"; // Default se non ci sono header
 }
 
-// Logging function
+// Funzione di logging
 function logAccess(
   event: string,
   user: string,
@@ -72,7 +74,7 @@ function logAccess(
   ]);
 }
 
-// Middleware for API key authentication
+// Middleware per autenticazione tramite API key
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers["authorization"];
 
@@ -98,24 +100,26 @@ function authMiddleware(req: Request, res: Response, next: NextFunction) {
     return;
   }
 
-  // Store user in request object
+  // Aggiunge l'utente alla richiesta
   (req as any).user = apiKey.name;
   next();
 }
 
-// Simple load balancer: Choose the least busy server
-let servers = [{ url: "http://localhost:11434", queue: 0 }];
+// Lista dei server finali (puoi aggiungere o cambiare l'URL del server finale qui)
+let servers = [{ url: "http://ollama-server.com/api/generate", queue: 0 }];
 
+// Funzione per ottenere il server meno occupato
 function getLeastBusyServer() {
   return servers.reduce((prev, curr) =>
     prev.queue < curr.queue ? prev : curr
   );
 }
 
-// Proxy route
+// Middleware di autenticazione
 app.use(authMiddleware);
 
-app.post("/api/*", (req: Request, res: Response) => {
+// Route principale per le richieste POST
+app.post("/api/*", async (req: Request, res: Response) => {
   const targetServer = getLeastBusyServer();
   logAccess(
     "gen_request",
@@ -127,10 +131,21 @@ app.post("/api/*", (req: Request, res: Response) => {
 
   targetServer.queue++;
 
-  proxy.web(req, res, { target: targetServer.url });
+  try {
+    // Inoltra la richiesta dal backend a Ollama o al server finale tramite Axios
+    const response = await axios({
+      method: "post",
+      url: targetServer.url, // URL del server Ollama o altro
+      headers: {
+        Authorization: req.headers["authorization"], // Mantieni l'API key
+        "Content-Type": "application/json", // Assumi JSON, ma puoi cambiare
+      },
+      data: req.body, // Forward del body
+    });
 
-  proxy.on("end", () => {
-    targetServer.queue--;
+    // Manda la risposta del server finale al client originale
+    res.status(response.status).send(response.data);
+
     logAccess(
       "gen_done",
       (req as any).user,
@@ -138,10 +153,7 @@ app.post("/api/*", (req: Request, res: Response) => {
       targetServer.url,
       targetServer.queue
     );
-  });
-
-  proxy.on("error", (error) => {
-    targetServer.queue--;
+  } catch (error: any) {
     logAccess(
       "gen_error",
       (req as any).user,
@@ -151,10 +163,12 @@ app.post("/api/*", (req: Request, res: Response) => {
       error.message
     );
     res.status(500).send("Server error");
-  });
+  } finally {
+    targetServer.queue--;
+  }
 });
 
-// Start the server
+// Avvia il server proxy su localhost:3006
 const PORT = process.env.PORT || 3006;
 app.listen(PORT, () => {
   console.log(`Proxy server running on port ${PORT}`);
