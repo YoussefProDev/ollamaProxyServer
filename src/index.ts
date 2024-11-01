@@ -110,7 +110,9 @@ app.post("/*", authMiddleware, async (req: Request, res: Response) => {
           "Content-Type": "application/json",
         },
         responseType: "stream", // Imposta il tipo di risposta su stream
-      }
+//	timeout: 60000, // Aumenta il timeout a 60 secondi     
+
+ }
     );
 
     // Imposta l'intestazione per il contenuto JSON
